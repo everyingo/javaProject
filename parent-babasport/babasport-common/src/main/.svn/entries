@@ -1,34 +1,0 @@
-10
-
-dir
-50
-svn://svn.everyingo.club/javaProject/parent-babasport/babasport-common/src/main
-svn://svn.everyingo.club/javaProject
-
-
-
-2017-09-24T12:01:25.592663Z
-50
-xt
-
-
-svn:special svn:externals svn:needs-lock
-
-
-
-
-
-
-
-
-
-
-
-ade37a8d-9ca5-42be-b97e-4ba1e3b2ceec
-
-java
-dir
-
-resources
-dir
-
