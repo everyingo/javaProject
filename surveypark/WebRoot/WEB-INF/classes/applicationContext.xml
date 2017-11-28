@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:cache="http://www.springframework.org/schema/cache"
+	xsi:schemaLocation="  
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-2.5.xsd  
+        http://www.springframework.org/schema/aop 
+        http://www.springframework.org/schema/aop/spring-aop-2.5.xsd  
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context-2.5.xsd
+        http://www.springframework.org/schema/mvc 
+        http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd  
+        http://www.springframework.org/schema/tx 
+        http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+        http://www.springframework.org/schema/cache 
+        http://www.springframework.org/schema/cache/spring-cache-3.2.xsd">
+
+    <!--扫描 所有的包  -->
+	<context:component-scan base-package="com.mine"></context:component-scan>
+	
+	<!--加载数据库配置文件  -->
+	<context:property-placeholder location="classpath:db.properties"/>
+
+	<!-- 设置数据源信息 (主库)-->
+	<bean id="dataSource-main" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<property name="user" value="${jdbc.user}"></property>
+		<property name="password" value="${jdbc.password}"></property>
+		<property name="driverClass" value="${jdbc.driverClass}"></property>
+		<property name="jdbcUrl" value="${jdbc.jdbcUrl}"></property>
+		
+		<property name="initialPoolSize" value="${jdbc.initialPoolSize}"></property>
+		<property name="maxPoolSize" value="${jdbc.maxPoolSize}"></property>
+	</bean>
+	<!-- 设置数据源信息 (从库)-->
+	<bean id="dataSource-1" parent="dataSource-main" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+	    <property name="jdbcUrl" value="${jdbc.jdbcUrl_1}"></property>
+	</bean>
+	
+	<!--数据源路由器  -->
+	<bean id="dataSourceRouter" class="com.mine.datasource.SurveyparkDataSourceRouter">
+	   <!--目标数据源集合  -->
+	   <property name="targetDataSources">
+	     <map>
+	        <entry key="odd" value-ref="dataSource-main"></entry>
+	        <entry key="even" value-ref="dataSource-1"></entry>
+	     </map>
+	   </property>
+	   <!--默认数据 源 -->
+	   <property name="defaultTargetDataSource" ref="dataSource-main"></property>
+	</bean>
+	
+	<!--配置 SessionFactory  -->
+	<bean id="sessionFactory" class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+	     <!--  -->
+	     <property name="dataSource" ref="dataSourceRouter"></property>
+	     <property name="mappingLocations" value="classpath:com/mine/model/*.hbm.xml"></property>
+	     <property name="hibernateProperties">
+	       <props>
+	            <prop key="hibernate.dialect">org.hibernate.dialect.MySQL5InnoDBDialect</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+				<prop key="hibernate.hbm2ddl.auto">update</prop>
+	       </props>
+	     </property>
+	</bean>
+	
+	<!--配置spring 声明式事务  -->
+	<!--1.配置hibernate 的事务管理器  -->
+	<bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+	    <property name="sessionFactory" ref="sessionFactory"></property>
+	</bean>
+	
+	<!--2.配置事务属性  -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+	     <tx:attributes>
+	         <tx:method name="get*"  read-only="true"/>
+	         <tx:method name="load*" read-only="true"/>
+	         <tx:method name="find*" read-only="true"/>
+	         <tx:method name="*" read-only="false"/>
+	     </tx:attributes>
+	</tx:advice>
+	
+	<!-- 日志  -->
+	<bean id="logger" class="com.mine.aop.Logger"/>
+	
+	<!--缓存的key值  -->
+	<bean id="cacheKeyGenerator" class="com.mine.cache.CacheKeyGenerator"></bean>
+	<!--缓存管理器  -->
+	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager">
+	  <property name="cacheManager" ref="cacheManagerFactory"></property>
+	</bean>
+	<!--缓存管理器工厂  -->
+	<bean id="cacheManagerFactory" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+	  <property name="configLocation" value="classpath:ehcache.xml"></property>
+	</bean>
+	<!--缓存通知  -->
+	<cache:advice id="cacheAdvice" cache-manager="cacheManager" key-generator="cacheKeyGenerator">
+	    <cache:caching cache="surveyparkCache">
+	        <cache:cacheable method="get*"/>
+	        <cache:cacheable method="find*"/>
+	        <cache:cacheable method="load*"/>
+	        
+	        <cache:cache-evict method="save*" all-entries="true"/>
+	        <cache:cache-evict method="delete*" all-entries="true"/>
+	        <cache:cache-evict method="update*" all-entries="true"/>
+	        <cache:cache-evict method="clear*" all-entries="true"/>
+	        <cache:cache-evict method="Move*" all-entries="true"/>
+	        <cache:cache-evict method="batch*" all-entries="true"/>
+	        <cache:cache-evict method="toggle*" all-entries="true"/>
+	        <cache:cache-evict method="new*" all-entries="true"/>
+	    </cache:caching>
+	</cache:advice>
+	
+	<!--3.配置事务切入点，再把事务属性和 事务切入点关联起来  -->
+	<aop:config>
+	   <aop:pointcut expression="execution(* com.mine.service.*.*(..))" id="Pointcut"/>
+	
+	   <!--事务切入点  -->
+	   <aop:advisor advice-ref="txAdvice" pointcut-ref="Pointcut" order="2"/>
+	   
+	   <!-- 缓存切入点 -->
+	   <aop:advisor advice-ref="cacheAdvice" pointcut-ref="Pointcut" order="0"/>
+	   
+	   <!--日志切入点  -->
+	   <aop:aspect ref="logger" order="1">
+	        <aop:around method="addLog" pointcut="(execution(* *..*Service.save*(..))
+	                                            or execution(* *..*Service.delete*(..))
+	                                            or execution(* *..*Service.update*(..))
+	                            				or execution(* *..*Service.clear*(..))
+	                            				or execution(* *..*Service.Move*(..))
+	                            				or execution(* *..*Service.batch*(..))
+	                            				or execution(* *..*Service.toggle*(..))
+	                            				or execution(* *..*Service.new*(..)) )
+	                            				and !bean(logServiceImpl)
+	                            				"/>
+	   </aop:aspect>
+	   
+	   
+	</aop:config>
+
+    <!--定义切面  -->
+    <!--定义切面的类  -->
+    <!-- <bean id="testAop" class="com.me.aop.TestAop"></bean>
+    <aop:config>
+       切入点 
+       <aop:pointcut expression="execution(* com.me.service.*.*(..))" id="myPointcut"/>
+       切面
+       <aop:aspect ref="testAop">
+            前置方法
+            <aop:before method="testBefore" pointcut-ref="myPointcut"/>
+            后置方法（无论通知的方法是否执行成功）
+            <aop:after method="testAfter" pointcut-ref="myPointcut"/>
+            后置方法（通知执行成功时执行）
+            <aop:after-returning method="testReturning" pointcut-ref="myPointcut"/>
+            后置方法（抛出异常时）
+            <aop:after-throwing method="testThrowing" pointcut-ref="myPointcut"/>
+            环绕方法
+            <aop:around method="testRound" pointcut-ref="myPointcut"/>
+       </aop:aspect>
+    </aop:config> -->
+	
+	<!--  -->
+	<!-- <aop:aspectj-autoproxy/> -->
+	
+	<!--权限工具类  -->
+	<bean id="powerUitl" class="com.mine.util.PowerUtil" init-method="initMethod">
+	   <property name="rightService" ref="rightServiceImpl"/>
+	</bean>
+</beans>

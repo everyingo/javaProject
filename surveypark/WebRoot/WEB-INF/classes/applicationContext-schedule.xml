@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+	http://www.springframework.org/schema/task 
+     http://www.springframework.org/schema/task/spring-task-3.2.xsd">
+
+	<!--日志定时器 -->
+	<!-- <bean id="logTask" class="com.mine.quartz.LogTask"></bean> -->
+
+
+    <!--调度器 -->
+	<bean name="schedulerFactoryBean" class="org.springframework.scheduling.quartz.SchedulerFactoryBean"/> 
+	<task:scheduler id="scheduler" pool-size="10" />
+	<task:executor id="executor" keep-alive="3600" pool-size="100-200" queue-capacity="500" rejection-policy="CALLER_RUNS" />
+	<task:annotation-driven executor="executor" scheduler="scheduler" />
+</beans>
