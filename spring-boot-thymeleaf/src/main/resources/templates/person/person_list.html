@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+<title>person list</title>
+<link rel="stylesheet" th:href="@{/css/layui.css}" />
+<script th:href="@{/js/layui.all.js}" />
+</head>
+<body>
+	<table class="layui-table">
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>名称</th>
+				<th>描述</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="person:${people}">
+				<td th:text="${person.id}"></td>
+				<td th:text="${person.name}"></td>
+				<td th:text="${person.description}"></td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>
